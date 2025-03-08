@@ -9,5 +9,6 @@
   },
   "scripts": {
     "start": "node erp_login_deploy.js"
-  }
+  },
+  "type": "module"
 }
