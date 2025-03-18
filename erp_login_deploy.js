@@ -42,8 +42,8 @@ async function main() {
             headless: "new",
             // headless: false,
             args: [
-                // "--no-sandbox",
-                // "--disable-setuid-sandbox",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
                 // "--disable-dev-shm-usage",
                 // "--disable-gpu",
                 // "--no-zygote",
