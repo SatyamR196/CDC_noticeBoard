@@ -15,43 +15,58 @@ import axios from 'axios';
 import open from 'open';
 import dotenv from 'dotenv';
 import { get } from 'http';
+import { MongoClient } from "mongodb";
+import { getTokenFromDB, saveTokenToDB, insertD, readD } from "./db.js";
 
 dotenv.config(); // Load environment variables
-
+// const uri =
+//   `mongodb+srv://satyamR196:${process.env.mongo_pass}@fetch-gmail.q6eos.mongodb.net/?retryWrites=true&w=majority&appName=Fetch-gmail`;
+// const client = new MongoClient(uri);
 
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 
 async function authenticate() {
     const credentials = {
-        client_id: process.env.CLIENT_ID,
-        client_secret: process.env.CLIENT_SECRET,
-        redirect_uri: process.env.REDIRECT_URI
+      client_id: process.env.CLIENT_ID,
+      client_secret: process.env.CLIENT_SECRET,
+      redirect_uri: process.env.REDIRECT_URI,
     };
-    const TOKEN = {
-        access_token: process.env.ACCESS_TOKEN,
-        refresh_token: process.env.REFRESH_TOKEN,
-        scope: process.env.SCOPE,
-        token_type: process.env.TOKEN_TYPE,
-        refresh_token_expires_in: Number(process.env.REFRESH_TOKEN_EXPIRES_IN),
-        expiry_date: Number(process.env.EXPIRY_DATE)
-    };
-    console.log("🔍 Checking environment variables...");
-    console.log("ACCESS_TOKEN:", process.env.ACCESS_TOKEN ? "✅ Loaded" : "❌ Missing");
-    console.log("REFRESH_TOKEN:", process.env.REFRESH_TOKEN ? "✅ Loaded" : "❌ Missing");
-    console.log("EXPIRY_DATE:", process.env.EXPIRY_DATE ? `✅ Loaded (${process.env.EXPIRY_DATE})` : "❌ Missing");
-
+  
     const oAuth2Client = new google.auth.OAuth2(
-        credentials.client_id,
-        credentials.client_secret,
-        credentials.redirect_uri
+      credentials.client_id,
+      credentials.client_secret,
+      credentials.redirect_uri
     );
-
-    if (TOKEN) {
-        oAuth2Client.setCredentials(TOKEN);
-        return oAuth2Client;
+  
+    let token = await getTokenFromDB();
+  
+    if (!token || !token.refresh_token) {
+      return getNewToken(oAuth2Client); // If no token, get a new one
     }
-
-    return getNewToken(oAuth2Client);
+  
+    oAuth2Client.setCredentials(token);
+  
+    // Refresh access token if expired
+    // ✅ Use isTokenExpiring() to check if token is about to expire
+    if (oAuth2Client.isTokenExpiring()) {
+      try {
+        const { credentials } = await oAuth2Client.refreshAccessToken();
+        oAuth2Client.setCredentials(credentials);
+  
+        await saveTokenToDB({
+          access_token: credentials.access_token,
+          refresh_token: token.refresh_token, // Keep the same refresh token
+          expiry_date: credentials.expiry_date,
+        });
+  
+        console.log("✅ Access token refreshed and saved to MongoDB!");
+      } catch (error) {
+        console.error("❌ Failed to refresh token:", error);
+        return getNewToken(oAuth2Client);
+      }
+    }
+  
+    return oAuth2Client;
 }
 
 function getNewToken(oAuth2Client) {

@@ -21,16 +21,19 @@ async function sendErrorNotification(comments=" ",errorMessage) {
 
 }
 
-let notice_data_path = "/tmp/notice_data.json";
+// let notice_data_path = "/tmp/notice_data.json";
 
-if (!fs.existsSync(notice_data_path)) {
-    fs.writeFileSync(notice_data_path, "[]");
-}
+// if (!fs.existsSync(notice_data_path)) {
+    // fs.writeFileSync(notice_data_path, "[]");
+// }
 
-let notice_data = fs.readFileSync(notice_data_path, 'utf8');
-notice_data = JSON.parse(notice_data);
-let prev_msgArr = notice_data;
-let msgArr = prev_msgArr;
+// let notice_data = fs.readFileSync(notice_data_path, 'utf8');
+// notice_data = JSON.parse(notice_data);
+// let prev_msgArr = notice_data;
+// let msgArr = prev_msgArr;
+
+let prev_msgArr = [];
+let msgArr = [];
 
 async function main() {
     let browser;
@@ -38,14 +41,14 @@ async function main() {
         browser = await puppeteer.launch({
             headless: "new",
             // headless: false,
-            // args: [
-            //     "--no-sandbox",
-            //     "--disable-setuid-sandbox",
-            //     "--disable-dev-shm-usage",
-            //     "--disable-gpu",
-            //     "--no-zygote",
-            //     "--single-process"
-            // ]
+            args: [
+                // "--no-sandbox",
+                // "--disable-setuid-sandbox",
+                // "--disable-dev-shm-usage",
+                // "--disable-gpu",
+                // "--no-zygote",
+                // "--single-process"
+            ]
         });
         const page = await browser.newPage();
 
@@ -152,7 +155,7 @@ async function main() {
                 newMsg.reverse();
                 console.log("new_Msg:", newMsg.length);
                 prev_msgArr = msgArr;
-                fs.writeFileSync(notice_data_path, JSON.stringify(prev_msgArr, null, 2));
+                // fs.writeFileSync(notice_data_path, JSON.stringify(prev_msgArr, null, 2));
                 for (let message of newMsg) {
                     await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
                         headers: { 'Content-Type': 'text/plain' }
@@ -167,8 +170,10 @@ async function main() {
                 setTimeout(send_notice, 10000); // Retry after 10 seconds
             }
         }
+
         setInterval(send_notice, 51000);
         await new Promise(() => {});
+
     } catch (error) {
         console.error("❌ Error occurred:", error);
         console.error("Restarting after 10 seconds...");

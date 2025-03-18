@@ -18,7 +18,6 @@ async function sendErrorNotification(comments=" ",errorMessage) {
         headers: { 'Content-Type': 'text/plain' }
     });
     console.log('📲 Error notification sent');
-
 }
 
 let notice_data = fs.readFileSync('notice_data.json', 'utf8');
