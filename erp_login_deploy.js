@@ -156,18 +156,26 @@ async function main() {
                 console.log("new_Msg:", newMsg.length);
                 prev_msgArr = msgArr;
                 // fs.writeFileSync(notice_data_path, JSON.stringify(prev_msgArr, null, 2));
-                for (let message of newMsg) {
-                    await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
-                        headers: { 'Content-Type': 'text/plain' }
-                    });
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                try {
+                    for (let message of newMsg) {
+                        await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
+                            headers: { 'Content-Type': 'text/plain' }
+                        });
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    console.log("📲 Notification sent successfully!");
+                } catch (error) {
+                    console.error("❌ NTFY SERVER ERROR, may be daily limit reached", error);
+                    sendErrorNotification("❌ NTFY SERVER ERROR, may be daily limit reached",error.message);
+                    await new Promise(resolve => setTimeout(resolve, 3600000));
+                    setTimeout(send_notice, 0); // Retry after 1 hour
                 }
-                console.log("📲 Notification sent successfully!");
+                
             } catch (error) {
                 console.error("❌ Error sending notices:", error);
                 console.error("Restarting after 10 seconds...");
                 sendErrorNotification(" in sending notification, line 182",error.message);
-                setTimeout(send_notice, 10000); // Retry after 10 seconds
+                setTimeout(send_notice, 60000); // Retry after 60 seconds
             }
         }
 
