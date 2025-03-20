@@ -81,7 +81,7 @@ async function main() {
             console.error("❌ Error occurred in Username or Password or Security Question:", error);
             console.error("Restarting after 10 seconds...");
             sendErrorNotification(error.message);
-            browser.close();
+            await browser.close();
             setTimeout(main, 10000); // Retry after 10 seconds
         }
         
@@ -105,7 +105,7 @@ async function main() {
             console.error("❌ Error occurred in OTP fetching, try again", error);
             console.error("Restarting after 10 seconds...");
             sendErrorNotification(error.message);
-            browser.close();
+            await browser.close();
             setTimeout(main, 10000); // Retry after 10 seconds
         }
         // ----------------- LOGIN TILL HERE -----------------
@@ -116,14 +116,15 @@ async function main() {
             console.error("❌ Error in opening url of Notice.jsp", error);
             console.error("Restarting after 10 seconds...");
             sendErrorNotification(error.message);
-            browser.close();
+            await browser.close();
             setTimeout(main, 10000); // Retry after 10 seconds   
         }
         
         async function send_notice() {
             try {
+                await new Promise(resolve => setTimeout(resolve, 3000)) ;
                 await page.reload({ waitUntil: 'domcontentloaded' });
-                await new Promise(resolve => setTimeout(resolve, 4000)) ;
+                await new Promise(resolve => setTimeout(resolve, 10000)) ;
                 let tableData;
                 try {
                     await page.waitForSelector('table', { timeout: 10000 });
