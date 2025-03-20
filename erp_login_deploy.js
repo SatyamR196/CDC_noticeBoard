@@ -133,7 +133,7 @@ async function main() {
                         return rows.map(row => {
                             return Array.from(row.querySelectorAll('td')).map(cell => cell.innerText.trim());
                         }).filter(row => row.length > 0 && row.length <= 12);
-                    }) || [];  // Ensure it is always an array
+                    }) || prev_msgArr;  // Ensure it is always an array
                 } catch (error) {
                     console.error("❌ Error in fetching table data", error);
                     console.error("Retry after 10 seconds...");
@@ -146,7 +146,7 @@ async function main() {
                     return `📢 New Notice:\n🔹 Type: ${row[2]}\n📌 Subject: ${row[3]}\n🏢 Company: ${row[4]}\n⏰ Time: ${row[7]}\n📎 Attachment: ${row[8] === "" ? "No" : "Yes"}\n------------------------------------------------\n📜 Notice: ${row[5]}`;
                 });
 
-                if(msgArr.length === 0 ){
+                if(msgArr.length == 0 ){
                     console.error("Retrying after 15 seconds...because msgArr is empty, may be table not loaded properly");
                     setTimeout(send_notice, 15000); // Retry after 10 seconds
                     return;
