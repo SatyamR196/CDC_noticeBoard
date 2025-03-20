@@ -13,12 +13,16 @@ let Q_A = {
 };
 
 async function sendErrorNotification(comments=" ",errorMessage) {
-
-    await axios.post(`https://ntfy.sh/${process.env.NTFY_ERROR_TOPIC}`, `❌ Error occurred${comments}: ${errorMessage}`, {
-        headers: { 'Content-Type': 'text/plain' }
-    });
-    console.log('📲 Error notification sent');
-
+    try {
+        await axios.post(`https://ntfy.sh/${process.env.NTFY_ERROR_TOPIC}`, `❌ Error occurred${comments}: ${errorMessage}`, {
+            headers: { 'Content-Type': 'text/plain' }
+        });
+        console.log('📲 Error notification sent');
+    } catch (error) {
+        console.error("❌ Error in sending ERROR notification, may be daily limit reached", error.message);
+        console.error("Retry after 1 hour...");
+        setTimeout(sendErrorNotification, 3600000); // Retry after 1 hour    
+    }
 }
 
 // let notice_data_path = "/tmp/notice_data.json";
@@ -118,35 +122,39 @@ async function main() {
         
         async function send_notice() {
             try {
-                await page.reload({ waitUntil: 'load' });
+                await page.reload({ waitUntil: 'domcontentloaded' });
+                await new Promise(resolve => setTimeout(resolve, 4000)) ;
                 let tableData;
                 try {
                     await page.waitForSelector('table', { timeout: 10000 });
-                    await new Promise(resolve => setTimeout(resolve, 4000)) ;
+                    await new Promise(resolve => setTimeout(resolve, 10000)) ;
                     tableData = await page.evaluate(() => {
                         const rows = Array.from(document.querySelectorAll('table tr'));
                         return rows.map(row => {
                             return Array.from(row.querySelectorAll('td')).map(cell => cell.innerText.trim());
                         }).filter(row => row.length > 0 && row.length <= 12);
-                    });
+                    }) || [];  // Ensure it is always an array
                 } catch (error) {
                     console.error("❌ Error in fetching table data", error);
                     console.error("Retry after 10 seconds...");
                     sendErrorNotification(error.message);
                     setTimeout(send_notice, 10000); // Retry after 10 seconds
                 }
-                console.log("Table Data:", tableData.length);
+
+                // console.log("Table Data:", tableData.length);
                 msgArr = tableData.map(row => {
                     return `📢 New Notice:\n🔹 Type: ${row[2]}\n📌 Subject: ${row[3]}\n🏢 Company: ${row[4]}\n⏰ Time: ${row[7]}\n📎 Attachment: ${row[8] === "" ? "No" : "Yes"}\n------------------------------------------------\n📜 Notice: ${row[5]}`;
                 });
+
+                if(msgArr.length === 0 ){
+                    console.error("Retrying after 15 seconds...because msgArr is empty, may be table not loaded properly");
+                    setTimeout(send_notice, 15000); // Retry after 10 seconds
+                    return;
+                }
+
                 msgArr = msgArr.slice(1, -2);
                 console.log("prev_msgArr:", prev_msgArr.length);
                 console.log("msgArr:", msgArr.length);
-                if(msgArr.length === 0 ){
-                    console.error("Retrying after 10 seconds...because msgArr is empty, may be table not loaded properly");
-                    setTimeout(send_notice, 10000); // Retry after 10 seconds
-                    return;
-                }
                 if (JSON.stringify(msgArr) === JSON.stringify(prev_msgArr)) {
                     console.log("📲 No new notices.");
                     return;
@@ -165,7 +173,7 @@ async function main() {
                     }
                     console.log("📲 Notification sent successfully!");
                 } catch (error) {
-                    console.error("❌ NTFY SERVER ERROR, may be daily limit reached", error);
+                    console.error("❌ NTFY SERVER ERROR, may be daily limit reached, recalling fxn in 1 hour", error.message);
                     sendErrorNotification("❌ NTFY SERVER ERROR, may be daily limit reached",error.message);
                     await new Promise(resolve => setTimeout(resolve, 3600000));
                     setTimeout(send_notice, 0); // Retry after 1 hour
