@@ -96,11 +96,11 @@ async function main() {
     
             await new Promise(resolve => setTimeout(resolve, 12000));
             let OTP = await get_OTP();
-            if (!OTP) throw new Error("Failed to retrieve OTP!");
+            if (!OTP || typeof(OTP)!=Number) throw new Error("Failed to retrieve OTP!");
     
             await page.type('input[name="email_otp"]', OTP);
             await page.click('#loginFormSubmitButton');
-            await page.waitForNavigation({ timeout: 15000 });
+            await page.waitForNavigation({ timeout: 15000 });   
         } catch (error) {
             console.error("❌ Error occurred in OTP fetching, try again", error);
             console.error("Restarting after 10 seconds...");
