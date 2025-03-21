@@ -122,7 +122,7 @@ async function main() {
         
         async function send_notice() {
             try {
-                await new Promise(resolve => setTimeout(resolve, 3000)) ;
+                await new Promise(resolve => setTimeout(resolve, 5000)) ;
                 await page.reload({ waitUntil: 'domcontentloaded' });
                 await new Promise(resolve => setTimeout(resolve, 10000)) ;
                 let tableData;
@@ -137,9 +137,9 @@ async function main() {
                     }) || prev_msgArr;  // Ensure it is always an array
                 } catch (error) {
                     console.error("❌ Error in fetching table data", error);
-                    console.error("Retry after 10 seconds...");
+                    console.error("Retry after 30 seconds...");
                     sendErrorNotification(error.message);
-                    setTimeout(send_notice, 10000); // Retry after 10 seconds
+                    setTimeout(send_notice, 30000); // Retry after 10 seconds
                 }
 
                 // console.log("Table Data:", tableData.length);
@@ -182,7 +182,7 @@ async function main() {
                 
             } catch (error) {
                 console.error("❌ Error sending notices:", error);
-                console.error("Restarting after 10 seconds...");
+                console.error("Restarting after 60 seconds...");
                 sendErrorNotification(" in sending notification, line 182",error.message);
                 setTimeout(send_notice, 60000); // Retry after 60 seconds
             }
