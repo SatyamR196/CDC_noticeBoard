@@ -96,7 +96,7 @@ async function main() {
     
             await new Promise(resolve => setTimeout(resolve, 12000));
             let OTP = await get_OTP();
-            if (!OTP || typeof(OTP)!=Number) throw new Error("Failed to retrieve OTP!");
+            if (!OTP || typeof(OTP) !== "number") throw new Error("Failed to retrieve OTP!");
     
             await page.type('input[name="email_otp"]', OTP);
             await page.click('#loginFormSubmitButton');
