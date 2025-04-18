@@ -213,12 +213,12 @@ async function main() {
                 prev_msgArr = msgArr;
                 // fs.writeFileSync(notice_data_path, JSON.stringify(prev_msgArr, null, 2));
                 try {
-                    // for (let message of newMsg) {
-                    //     await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
-                    //         headers: { 'Content-Type': 'text/plain' }
-                    //     });
-                    //     await new Promise(resolve => setTimeout(resolve, 500));
-                    // }
+                    for (let message of newMsg) {
+                        await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
+                            headers: { 'Content-Type': 'text/plain' }
+                        });
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
                     console.log("📲 Notification sent successfully!");
                 } catch (error) {
                     console.error("❌ NTFY SERVER ERROR, may be daily limit reached, recalling fxn in 1 hour", error.message);
