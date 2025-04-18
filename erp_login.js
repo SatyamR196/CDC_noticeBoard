@@ -1,234 +1,123 @@
-import puppeteer from 'puppeteer';
-import dotenv from 'dotenv';
-import get_OTP from './fetch_gmail.js';
-import fs from 'fs';
-import axios from 'axios';
+import puppeteer from "puppeteer";
+import dotenv from "dotenv";
+import get_OTP from "./fetch_gmail.js";
+import promptSync from 'prompt-sync';
+
+const prompt = promptSync(); // Call the default function
+const mode = prompt('Enter mode of OTP entry : auto / manual (default) ?', 'manual');
+console.log(`Chosen Mode : , ${mode}!`);
 
 dotenv.config();
 
 let Q_A = {
-    [process.env.SQ1] : process.env.A1,
-    [process.env.SQ2] : process.env.A2,
-    [process.env.SQ3] : process.env.A3,
+    [process.env.SQ1]: process.env.A1,
+    [process.env.SQ2]: process.env.A2,
+    [process.env.SQ3]: process.env.A3,
 };
 
-(async () => {
-    const browser = await puppeteer.launch({ headless: false,args: ['--start-maximized']});  // Set headless to false for debugging
+async function delay(t) {
+    return new Promise((resolve) => setTimeout(resolve, t * 1000));
+    // console.log("Delay for", t, "seconds");
+}
+
+const main = async () => {
+    const browser = await puppeteer.launch({
+        headless: false,
+        args: ["--start-maximized"],
+    }); // Set headless to false for debugging
     const page = await browser.newPage();
+
+    page.setDefaultTimeout(3600000); // 60 min default for all locators
+    page.setDefaultNavigationTimeout(3600000); // 60 min default for all navigation
 
     // Get the screen dimensions from Puppeteer
     const { width, height } = await page.evaluate(() => ({
         width: window.screen.width,
-        height: window.screen.height
+        height: window.screen.height,
     }));
 
     // Set the viewport to match the full screen size
     await page.setViewport({ width, height });
 
     // Navigate to the ERP login page
-    await page.goto('https://erp.iitkgp.ac.in/', { waitUntil: 'networkidle2' });
+    await page.goto("https://erp.iitkgp.ac.in/", { waitUntil: "networkidle2" });
 
+    try {
+        await page.locator('input[name="user_id"]').fill(process.env.ERP_USERNAME);
+        await page.locator('input[name="password"]').fill(process.env.ERP_PASSWORD);
 
-    // Enter the login credentials (Replace 'your_username' and 'your_password' accordingly)
-    // await new Promise(resolve => setTimeout(resolve, 1000)) ;
-    await page.waitForSelector('input[name="user_id"]', { visible: true }); // Wait for the username field to load
-    await page.type('input[name="user_id"]', process.env.ERP_USERNAME); // Replace with actual selector
-    await new Promise(resolve => setTimeout(resolve, 3000)) ;
-    await page.type('input[name="password"]', process.env.ERP_PASSWORD); // Replace with actual selector
-    // await new Promise(resolve => setTimeout(resolve, 3000)) ;
-    // Step 2: Wait for the security question to load
+        await page.waitForFunction(() => {
+            const label = document.querySelector('label[for="answer"]');
+            return label && label.innerText.trim().length > 0;
+        });
 
-    // await page.waitForSelector('label[for="answer"]', { timeout: 10000 }); // not working as before loading innertext this goes forward
-    await page.waitForFunction(() => {// This fxn will stop execution till both selector and innertext is loaded.
-        const label = document.querySelector('label[for="answer"]');
-        return label && label.innerText.trim().length > 0;
-    }, { timeout: 10000 });
-    
-    console.log("✅ Security question label found! Running evaluate...");
-    // await new Promise(resolve => setTimeout(resolve, 1000)) 
-    // Step 3: Get the security question text
+        const securityQuestion = await page.evaluate(() => {
+            return document.querySelector('label[for="answer"]').innerText;
+        });
 
-    const securityQuestion = await page.evaluate(() => {
-        console.log("C",document.querySelector('label[for="answer"]').innerText);
-        return document.querySelector('label[for="answer"]').innerText;
-    });
+        let answer = Q_A[securityQuestion];
+        if (!answer) throw new Error("Security Question not recognized!");
 
-    console.log("Security Question:", securityQuestion);
-    // Step 4: Determine the correct answer from .env
-    let answer = Q_A[securityQuestion]; // Get the answer from the object
-    console.log("Answer=",answer);
-
-    if (!answer) {
-        console.error("Security Question not recognized!");
+        await page.locator('input[name="answer"]').fill(answer);
+    } catch (error) {
+        console.error("❌ Error occurred in Username or Password or Security Question:",error);
+        console.error("Restarting after 10 seconds...");
         await browser.close();
+        await delay(10);
+        await main(); // Retry after 10 seconds
         return;
     }
-    
-    // Step 5: Enter the answer and submit
-    await page.type('input[name="answer"]', answer);
-    // await new Promise(resolve => setTimeout(resolve, 5000)) 
 
-    page.on('dialog', async dialog => {
-        console.log("Popup Message:", dialog.message()); // Log the popup message
-        await dialog.accept(); // Click 'OK' to close the popup
-    });
-
-    // Click the "Send OTP" button
-    await page.click('#getotp'); // Replace with the correct selector if needed
-
-    console.log("OTP sent! Enter it manually to proceed.");
-
-    await new Promise(resolve => setTimeout(resolve, 11000)) 
-
-    let OTP = await get_OTP(); // Get OTP from email (or any other method)
-    console.log("OTP:", OTP);
-    
-    await page.type('input[name="email_otp"]', OTP);
-
-    // Click the login/submit button (Find the correct selector for OTP submission)
-    await page.click('#loginFormSubmitButton'); // Replace with the correct selector if needed // Replace with actual selector
-
-    console.log("Logged in successfully!");
-
-    // -------------------------------------------AFTER LOGIN-------------------------------------------
-    
-    // await new Promise(resolve => setTimeout(resolve, 10000)) 
-    await page.waitForSelector('a', { visible: true }); // Wait for all links to load
-    await new Promise(resolve => setTimeout(resolve, 10000)) 
-    await page.evaluate(() => {
-        const cdcLink = Array.from(document.querySelectorAll('a'))
-            .find(a => a.innerText.trim() === 'CDC');
-        if (cdcLink) cdcLink.click();
-    });
-
-    console.log("✅ Clicked on CDC link!");
-
-    // Wait for CDC page to load (modify selector accordingly)
-    await page.waitForNavigation();
-
-    console.log("✅ CDC page loaded successfully!");
-    await new Promise(resolve => setTimeout(resolve, 2000)) 
-    await page.click('.panel-heading');
-    
-    await new Promise(resolve => setTimeout(resolve, 2000)) 
-    await page.locator('.panel-body ::-p-text(Application of Placement/Internship)').click();
-    
-    await page.waitForNavigation();
-
-    //---------------------------------------
-    await new Promise(resolve => setTimeout(resolve, 5000)) ;
-    const newPage = await browser.newPage();
-
-    await newPage.setViewport({ width, height });
-    
-    await newPage.goto('https://erp.iitkgp.ac.in/TrainingPlacementSSO/Notice.jsp', { waitUntil: 'domcontentloaded' });
-    console.log("✅ 'Notice' page loaded successfully!");
-
-    let msgArr = [];
-    let prev_msgArr = [];
-    //----------------------------LOOP
-    async function send_notice() {
-    
-        await newPage.reload();
-        console.log("Page reloaded!");
-        await newPage.waitForSelector('table');
-        await new Promise(resolve => setTimeout(resolve, 5000)) ;
-        
-    // Extract table rows
-    const tableData = await newPage.evaluate(() => {
-        const rows = Array.from(document.querySelectorAll('table tr'));
-        return rows.map(row => {
-            return Array.from(row.querySelectorAll('td')).map(cell => cell.innerText.trim());
-        }).filter(row => row.length > 0 && row.length <= 12); // Remove empty rows
-    });
-
-    // Save data as JSON
-    // console.log(tableData);
-    // console.log(tableData[3],tableData[4]);
-    // let msgArr = [];
-    msgArr = tableData.map((row) => {
-        // console.log(row);
-        let data = {
-            "Type": row[2],
-            "Subject": row[3],
-            "Company": row[4],
-            "Notice": row[5],
-            "Notice Time": row[7],
-            "Attachment": row[8] === "" ? "No" : "Yes"
-        }
-        return `📢 New Notice:
-🔹 Type: ${data.Type}
-📌 Subject: ${data.Subject}
-🏢 Company: ${data.Company}
-⏰ Time: ${data["Notice Time"]}
-📎 Attachment: ${data.Attachment}
-------------------------------------------------
-📜 Notice: ${data.Notice}
-        ` ;
-    });
-
-    
-    msgArr.shift();
-    msgArr.pop();
-    msgArr.pop();
-    console.log(msgArr.length);
-    if(msgArr.length === 0) {
-        msgArr=prev_msgArr;
-    }
-
-    let k=2;
-    let data = {
-        "Type": tableData[k][2],
-        "Subject": tableData[k][3],
-        "Company": tableData[k][4],
-        "Notice": tableData[k][5],
-        "Notice Time": tableData[k][7],
-        "Attachment": tableData[k][8] === "" ? "No" : "Yes"
-    }
-    // console.log(data);
-    fs.writeFileSync('companyTable.json', JSON.stringify(tableData, null, 2));
-
-    console.log('✅ Data extracted and saved as companyTable.json');
-
-    // const ntfyUrl = `https://ntfy.sh/${process.env.NTFY_TOPIC}`;
-    // let prev_msgArr = [];
-//     const message = `📢 New Notice:
-// 🔹 Type: ${data.Type}
-// 📌 Subject: ${data.Subject}
-// 🏢 Company: ${data.Company}
-// ⏰ Time: ${data["Notice Time"]}
-// 📎 Attachment: ${data.Attachment}
-// ------------------------------------------------
-// 📜 Notice: ${data.Notice}
-//         ` ;
-//     prev_msgArr.push(message);
-//     console.log(prev_msgArr);
-    // console.log(msgArr);
     try {
-    
-        if(JSON.stringify(msgArr) === JSON.stringify(prev_msgArr)) {
-            console.log("📲 Notification already sent!,No new Notice");
-            return;
-        }
-        const newMsg = msgArr.filter(item => !prev_msgArr.includes(item));
-        newMsg.reverse();
-        console.log("NEW MSG ARR:",newMsg);
-        for (let message of newMsg) {
-            await axios.post(`https://ntfy.sh/${process.env.NTFY_CDC_TOPIC}`, message, {
-                headers: { 'Content-Type': 'text/plain' }
-            });
-            await new Promise(resolve => setTimeout(resolve, 500))  // Add a delay to ensure order (adjust as needed)
+        // OTP Fetch from gmail API Fill up
+        page.on("dialog", async (dialog) => {
+            console.log("Popup Message:", dialog.message());
+            await dialog.accept();
+        });
+
+        await page.locator("#getotp").click();
+        let OTP = null;
+        if(mode === 'manual'){
+            console.log("OTP sent! Enter OTP from gmail...");
+            OTP = prompt('Enter OTP from gmail: ');
+        }else{
+            console.log("OTP sent! fetching OTP from gmail...");
+            await delay(15);
+            OTP = await get_OTP();
         }
         
-        console.log("📲 Notification sent successfully!");
-        prev_msgArr = msgArr;
+        console.log("OTP:", OTP, typeof parseInt(OTP));
+        if (!OTP || isNaN(parseInt(OTP))) throw new Error("Failed to retrieve OTP! OTP isn't a number Retry!");
+
+        await delay(5);
+        await page.locator('input[name="email_otp"]').fill(OTP);
+        
+        try {
+            await page.locator("#loginFormSubmitButton").click();
+        } catch (error) {
+            console.error("❌ Error in clicking login button", error);
+            console.error("Restarting after 10 seconds...");
+            await browser.close();
+            await page.screenshot({ path: "debug.png", fullPage: true });
+            delay(10);
+            await main();
+        }
+        await page.waitForNavigation({ waitUntil: "networkidle2" });
+        console.log("Logged in successfully!");
+
     } catch (error) {
-        console.error("❌ Error sending notification:", error);
+        console.error("❌ Error occurred in OTP fetching, try again", error);
+        console.error("Restarting after 10 seconds...");
+        // sendErrorNotification(error.message);
+        await browser.close();
+        await delay(10);
+        await main(); // Retry after 10 seconds
+        return;
     }
-    
-}
-    // send_notice();
-    setInterval(send_notice, 30000);
-    await new Promise(resolve => setTimeout(resolve, 10000)) 
-    await new Promise(() => {}); // Keep the browser open
-})();
+
+    await new Promise(() => { }); // Keep the browser open
+};
+
+main().catch((error) => {
+    console.error("❌ Error in main function:", error);
+});

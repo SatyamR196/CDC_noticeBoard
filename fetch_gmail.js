@@ -138,7 +138,7 @@ async function get_OTP() {
 //     console.log("OTP from main:", OTP);
 // }
 
-get_OTP();
+// get_OTP();
 
 export default get_OTP; // Export the function for testing
 
